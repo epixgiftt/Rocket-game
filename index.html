@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Ebic Gift - لعبة الصاروخ (تسلية)</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 380px;
+            background: #1e293b;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #334155;
+            text-align: center;
+            position: relative;
+        }
+
+        /* TON Balance Card (Simulation) */
+        .ton-wallet {
+            background: linear-gradient(135deg, #0088cc 0%, #005580 100%);
+            border-radius: 16px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
+        }
+
+        .ton-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ton-logo {
+            width: 36px;
+            height: 36px;
+            background: #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ton-logo svg {
+            width: 22px;
+            height: 22px;
+            fill: #0088cc;
+        }
+
+        .ton-balance-title {
+            font-size: 11px;
+            color: #b0e0e6;
+            text-align: right;
+        }
+
+        .ton-balance-amount {
+            font-size: 20px;
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        /* Bet Controls */
+        .bet-container {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #334155;
+        }
+
+        .bet-title {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+
+        .bet-input-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .bet-input-box input {
+            width: 90px;
+            background: #1e293b;
+            border: 1px solid #0088cc;
+            color: #fff;
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        /* Game Display Window */
+        .game-display {
+            background: #0f172a;
+            border-radius: 16px;
+            padding: 25px 15px;
+            margin-bottom: 15px;
+            position: relative;
+            height: 210px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            overflow: hidden;
+            border: 1px solid #1e293b;
+        }
+
+        .multiplier {
+            font-size: 40px;
+            font-weight: 900;
+            color: #0088cc;
+            text-shadow: 0 0 10px rgba(0, 136, 204, 0.4);
+            z-index: 2;
+        }
+
+        .rocket-wrapper {
+            position: relative;
+            font-size: 65px;
+            z-index: 2;
+            transition: transform 0.1s linear;
+        }
+
+        /* Animations */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            20% { transform: translate(-3px, 0px) rotate(4deg); }
+            40% { transform: translate(1px, -1px) rotate(-4deg); }
+            60% { transform: translate(-2px, 1px) rotate(3deg); }
+            80% { transform: translate(2px, 1px) rotate(-2deg); }
+            100% { transform: translate(1px, -2px) rotate(0deg); }
+        }
+
+        @keyframes explode {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(2.5); opacity: 0.8; filter: drop-shadow(0 0 20px red); }
+            100% { transform: scale(0); opacity: 0; }
+        }
+
+        @keyframes winFly {
+            0% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-70px) scale(1.4); }
+            100% { transform: translateY(-130px) scale(0); }
+        }
+
+        .flying {
+            animation: shake 0.18s infinite;
+        }
+
+        .exploding {
+            animation: explode 0.5s ease-out forwards;
+        }
+
+        .win-anim {
+            animation: winFly 0.8s ease-in forwards;
+        }
+
+        .status {
+            font-size: 14px;
+            color: #94a3b8;
+            z-index: 2;
+            font-weight: bold;
+        }
+
+        .btn {
+            background: #22c55e;
+            color: white;
+            border: none;
+            padding: 14px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 12px;
+            width: 100%;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+            transition: all 0.2s;
+        }
+
+        .btn-cashout {
+            background: #f59e0b;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        /* Simulated Gift Alert Banner */
+        .gift-alert {
+            display: none;
+            background: rgba(124, 82, 246, 0.2);
+            border: 1px solid #7c52f6;
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 15px;
+            color: #c4b5fd;
+            font-weight: bold;
+            font-size: 13px;
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.98); }
+            100% { transform: scale(1.02); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- TON Balance Card (Fake Demo Balance) -->
+    <div class="ton-wallet">
+        <div class="ton-info">
+            <div class="ton-logo">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2L3 7v10l9 5 9-5V7l-9-5zm0 2.3l6.7 3.7-6.7 3.8-6.7-3.8L12 4.3zM5 9.1l6 3.4v7.3l-6-3.3V9.1zm14 7.4l-6 3.3v-7.3l6-3.4v7.4z"/>
+                </svg>
+            </div>
+            <div>
+                <div class="ton-balance-title">الرصيد الوهمي (TON)</div>
+                <div class="ton-balance-amount"><span id="balance">100.00</span> TON</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bet Controls -->
+    <div class="bet-container">
+        <div class="bet-title">مبلغ الرهان الوهمي:</div>
+        <div class="bet-input-box">
+            <input type="number" id="betAmount" value="2.00" min="0.5" step="0.5">
+            <span style="font-weight: bold; color: #0088cc;">TON</span>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div class="game-display">
+        <div class="multiplier" id="multiplier">1.00x</div>
+        <div class="rocket-wrapper" id="rocket">🚀</div>
+        <div class="status" id="status">حدد الرهان واضغط ابدأ</div>
+    </div>
+
+    <button class="btn" id="actionBtn" onclick="handleClick()">🚀 ابدأ اللعب</button>
+
+    <!-- Fake Gift Banner -->
+    <div class="gift-alert" id="giftAlert">
+        🎁 مبروك! حققت أرباحاً أعلى من 4 TON وحصلت على هدية وهمية مميزة!
+    </div>
+</div>
+
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    let balance = 100.00; // رصيد وهمي مجاني بداية اللعبة
+    let bet = 2.00;
+    let multiplier = 1.00;
+    let isRunning = false;
+    let timer = null;
+    let currentRocketIcon = "🚀";
+
+    // قائمة بأشكال مختلفة تتغير عشوائياً في كل جولة
+    const rocketsList = [
+        { icon: "🚀", name: "الصاروخ الكلاسيكي" },
+        { icon: "🛸", name: "الصحن الطائر" },
+        { icon: "🛰️", name: "المسبار الفضائي" },
+        { icon: "👾", name: "المركبة القتالية" },
+        { icon: "☄️", name: "النيزك السريع" }
+    ];
+
+    // هدايا وهمية للتشويق والمتعة
+    const telegramGifts = [
+        { name: "🎁 نجمة تليجرام (Telegram Star)", minWin: 4.0 },
+        { name: "🧸 دُب تليجرام (Plush Bear)", minWin: 8.0 },
+        { name: "🎩 قبعة عيد الميلاد (B-Day Hat)", minWin: 15.0 },
+        { name: "💎 هدية ماسية (Diamond Gift)", minWin: 30.0 }
+    ];
+
+    function getRandomRocket() {
+        const randomIndex = Math.floor(Math.random() * rocketsList.length);
+        return rocketsList[randomIndex].icon;
+    }
+
+    function handleClick() {
+        if (!isRunning) {
+            startGame();
+        } else {
+            cashOut();
+        }
+    }
+
+    function startGame() {
+        const betInput = document.getElementById('betAmount');
+        const rocket = document.getElementById('rocket');
+        bet = parseFloat(betInput.value);
+
+        if (isNaN(bet) || bet <= 0) {
+            alert("يرجى إدخال مبلغ رهان صحيح!");
+            return;
+        }
+        if (bet > balance) {
+            alert("الرصيد الوهمي غير كافٍ! إعادة شحن تلقائية...");
+            balance = 100.00; // إعادة تعبئة تلقائية لو خلص الرصيد للتسلية المستمرة
+            document.getElementById('balance').innerText = balance.toFixed(2);
+            return;
+        }
+
+        // اختيار شكل جديد في كل جولة
+        currentRocketIcon = getRandomRocket();
+
+        balance -= bet;
+        document.getElementById('balance').innerText = balance.toFixed(2);
+        document.getElementById('giftAlert').style.display = 'none';
+
+        // ضبط الأيقونة والأنيميشن
+        rocket.className = "rocket-wrapper flying";
+        rocket.innerText = currentRocketIcon;
+
+        isRunning = true;
+        multiplier = 1.00;
+        let crashPoint = (Math.random() * 5 + 1.15).toFixed(2);
+
+        betInput.disabled = true;
+        document.getElementById('actionBtn').innerText = "💰 سحب الأرباح!";
+        document.getElementById('actionBtn').className = "btn btn-cashout";
+        document.getElementById('status').innerText = `${currentRocketIcon} ينطلق في الفضاء...`;
+
+        timer = setInterval(() => {
+            multiplier += 0.04;
+            document.getElementById('multiplier').innerText = multiplier.toFixed(2) + "x";
+
+            if (multiplier >= crashPoint) {
+                crashGame();
+            }
+        }, 100);
+    }
+
+    function cashOut() {
+        clearInterval(timer);
+        isRunning = false;
+
+        const rocket = document.getElementById('rocket');
+        let winAmount = bet * multiplier;
+        balance += winAmount;
+        document.getElementById('balance').innerText = balance.toFixed(2);
+
+        // أنيميشن طيران الفوز
+        rocket.className = "rocket-wrapper win-anim";
+
+        document.getElementById('betAmount').disabled = false;
+        document.getElementById('actionBtn').innerText = "🚀 ابدأ جولة جديدة";
+        document.getElementById('actionBtn').className = "btn";
+        document.getElementById('status').innerText = `🎉 ربحت ${winAmount.toFixed(2)} TON وهمي!`;
+
+        // عرض الهدية الوهمية عند تجاوز 4 TON
+        if (winAmount >= 4.0) {
+            let gift = telegramGifts[0];
+            for (let g of telegramGifts) {
+                if (winAmount >= g.minWin) gift = g;
+            }
+            const giftBox = document.getElementById('giftAlert');
+            giftBox.innerHTML = `🎉 مبروك! أرباحك (${winAmount.toFixed(2)} TON)<br>تؤهلك للحصول على هدية وهمية: <b>${gift.name}</b>!`;
+            giftBox.style.display = 'block';
+        }
+
+        setTimeout(() => {
+            rocket.className = "rocket-wrapper";
+            rocket.innerText = currentRocketIcon;
+        }, 1000);
+    }
+
+    function crashGame() {
+        clearInterval(timer);
+        isRunning = false;
+
+        const rocket = document.getElementById('rocket');
+        
+        // أنيميشن الانفجار
+        rocket.className = "rocket-wrapper exploding";
+
+        setTimeout(() => {
+            rocket.innerText = "💥";
+        }, 200);
+
+        document.getElementById('betAmount').disabled = false;
+        document.getElementById('actionBtn').innerText = "🚀 حاول مجدداً";
+        document.getElementById('actionBtn').className = "btn";
+        document.getElementById('status').innerText = `💥 تحطم ${currentRocketIcon}! خسرت ${bet.toFixed(2)} TON`;
+
+        setTimeout(() => {
+            rocket.className = "rocket-wrapper";
+            rocket.innerText = "🚀";
+            document.getElementById('multiplier').innerText = "1.00x";
+        }, 1800);
+    }
+</script>
+
+</body>
+</html>
