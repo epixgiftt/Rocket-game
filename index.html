@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Epic Gift - Rocket Crash TON</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; user-select: none; }
+        body { background: #0b0e14; color: #ffffff; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; }
+
+        .app-container { width: 100%; max-width: 420px; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+
+        /* الشريط العلوي - معلومات المستخدم والرصيد */
+        .top-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #151a24; border-radius: 14px; border: 1px solid #222c3d; }
+        
+        .user-profile { display: flex; align-items: center; gap: 8px; }
+        .user-avatar { width: 34px; height: 34px; border-radius: 50%; background: #0088cc; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; border: 2px solid #0088cc; overflow: hidden; }
+        .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .user-name { font-size: 13px; font-weight: bold; color: #f8fafc; }
+
+        .balance-badge { background: #1c2433; border: 1px solid #0088cc; border-radius: 20px; padding: 5px 12px; display: flex; align-items: center; gap: 6px; font-weight: bold; font-size: 14px; color: #38bdf8; }
+        .ton-icon { width: 18px; height: 18px; background: #0088cc; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; font-weight: 900; }
+
+        /* شريط نتائج الجولات السابقة */
+        .history-ribbon { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+        .history-ribbon::-webkit-scrollbar { display: none; }
+        .history-chip { background: #1a2230; border: 1px solid #283347; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; color: #38bdf8; white-space: nowrap; }
+        .history-chip.high { color: #f59e0b; border-color: #f59e0b; }
+
+        /* مسرح اللعبة وأنيميشن الصاروخ 2D */
+        .game-stage { position: relative; width: 100%; height: 250px; background: radial-gradient(circle at bottom, #172033 0%, #080b12 100%); border-radius: 16px; border: 1px solid #222c3d; overflow: hidden; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        /* عداد العداد الرقمي والـ Countdown */
+        .live-multiplier { position: absolute; top: 12px; right: 12px; background: rgba(0, 136, 204, 0.25); border: 1px solid #0088cc; padding: 4px 12px; border-radius: 8px; font-size: 20px; font-weight: 900; color: #38bdf8; z-index: 5; text-shadow: 0 0 8px rgba(56, 189, 248, 0.4); }
+        .countdown-wrapper { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 5; background: rgba(8, 11, 18, 0.6); }
+        .countdown-circle { width: 90px; height: 90px; border-radius: 50%; border: 4px solid #10b981; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: 900; color: #fff; box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); }
+
+        /* التحكم والمراهنة */
+        .controls-card { background: #151a24; border-radius: 16px; border: 1px solid #222c3d; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+        .input-box { display: flex; flex-direction: column; gap: 6px; }
+        .input-box label { font-size: 12px; color: #94a3b8; font-weight: bold; }
+        .input-field { display: flex; align-items: center; background: #0b0e14; border: 1px solid #283347; border-radius: 10px; padding: 0 12px; }
+        .input-field input { width: 100%; background: transparent; border: none; padding: 12px 0; color: #fff; font-size: 16px; font-weight: bold; outline: none; }
+
+        .btn-main { background: #2563eb; color: #fff; border: none; padding: 14px; border-radius: 12px; font-size: 18px; font-weight: 800; width: 100%; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); }
+        .btn-main.cashout { background: #f59e0b; color: #000; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.5); }
+
+        /* قائمة اللاعبين المباشرة */
+        .feed-container { background: #151a24; border-radius: 16px; border: 1px solid #222c3d; padding: 10px; display: flex; flex-direction: column; gap: 8px; max-height: 160px; overflow-y: auto; }
+        .player-row { display: flex; justify-content: space-between; align-items: center; background: #1c2433; padding: 8px 12px; border-radius: 10px; font-size: 12px; }
+        .player-left { display: flex; align-items: center; gap: 8px; }
+        .player-pic { width: 26px; height: 26px; border-radius: 50%; background: #334155; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="top-bar">
+        <div class="user-profile">
+            <div class="user-avatar" id="avatarBox">👤</div>
+            <span class="user-name" id="userName">User</span>
+        </div>
+        <div class="balance-badge">
+            <div class="ton-icon">💎</div>
+            <span id="userBalance">100.00</span> TON
+        </div>
+    </div>
+
+    <div class="history-ribbon" id="historyRibbon">
+        <div class="history-chip">1.84x</div>
+        <div class="history-chip">2.17x</div>
+        <div class="history-chip high">4.61x</div>
+        <div class="history-chip">1.20x</div>
+        <div class="history-chip high">13.2x</div>
+    </div>
+
+    <div class="game-stage">
+        <div class="live-multiplier" id="multiplierBadge">1.00x</div>
+        <div class="countdown-wrapper" id="countdownWrapper">
+            <div class="countdown-circle" id="countdownTimer">5</div>
+        </div>
+        <canvas id="rocketCanvas"></canvas>
+    </div>
+
+    <div class="controls-card">
+        <div class="input-box">
+            <label>مبلغ الرهان (TON)</label>
+            <div class="input-field">
+                <input type="number" id="betInput" value="2.00" min="0.1" step="0.5">
+                <span style="color: #0088cc; font-weight: bold; font-size: 13px;">TON</span>
+            </div>
+        </div>
+        <button class="btn-main" id="mainBtn" onclick="handleButtonClick()">تأكيد الرهان 🚀</button>
+    </div>
+
+    <div class="feed-container" id="playersFeed"></div>
+</div>
+
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    // جلب معلومات وتصوير المستخدم من تلجرام
+    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        const u = tg.initDataUnsafe.user;
+        document.getElementById('userName').innerText = u.first_name || "User";
+        if (u.photo_url) {
+            document.getElementById('avatarBox').innerHTML = `<img src="${u.photo_url}" alt="user">`;
+        } else {
+            document.getElementById('avatarBox').innerText = (u.first_name || "U")[0].toUpperCase();
+        }
+    }
+
+    const canvas = document.getElementById('rocketCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.parentElement.offsetWidth;
+    canvas.height = canvas.parentElement.offsetHeight;
+
+    let balance = 100.00;
+    let gameState = "COUNTDOWN"; // COUNTDOWN, FLYING, CRASHED
+    let countdownVal = 5;
+    let currentMultiplier = 1.00;
+    let crashMultiplier = 2.00;
+    let activeBet = 0;
+    let hasBet = false;
+    let rocketX = 30, rocketY = canvas.height - 30;
+
+    // قائمة لاعبين وهميين للمحاكاة
+    const mockPlayers = [
+        { name: "Atlant", bet: 2.50 },
+        { name: "Federike", bet: 1.50 },
+        { name: "Arge...", bet: 0.50 },
+        { name: "Mehdi", bet: 3.00 }
+    ];
+
+    function updateFeed() {
+        document.getElementById('playersFeed').innerHTML = mockPlayers.map(p => `
+            <div class="player-row">
+                <div class="player-left">
+                    <div class="player-pic">${p.name[0]}</div>
+                    <span>${p.name}</span>
+                </div>
+                <div style="color: #10b981; font-weight: bold;">${p.bet.toFixed(2)} TON</div>
+            </div>
+        `).join('');
+    }
+
+    function renderStage() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // رسم خلفية نجوم متحركة
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        for(let i = 0; i < 25; i++) {
+            let x = (Math.sin(i * 99 + Date.now() * 0.001) + 1) * canvas.width / 2;
+            let y = (Math.cos(i * 33 + Date.now() * 0.001) + 1) * canvas.height / 2;
+            ctx.fillRect(x, y, 2, 2);
+        }
+
+        // رسم خط المسار المنحني
+        if (gameState === "FLYING" || gameState === "CRASHED") {
+            ctx.beginPath();
+            ctx.strokeStyle = gameState === "CRASHED" ? "#ef4444" : "#f59e0b";
+            ctx.lineWidth = 4;
+            ctx.moveTo(25, canvas.height - 25);
+            ctx.quadraticCurveTo(canvas.width / 2, canvas.height - 10, rocketX, rocketY);
+            ctx.stroke();
+        }
+
+        // رسم الصاروخ 2D أو الانفجار
+        ctx.font = "32px Arial";
+        if (gameState === "CRASHED") {
+            ctx.fillText("💥", rocketX - 15, rocketY + 10);
+        } else {
+            ctx.fillText("🚀", rocketX - 15, rocketY + 10);
+        }
+
+        requestAnimationFrame(renderStage);
+    }
+
+    function startCountdown() {
+        gameState = "COUNTDOWN";
+        countdownVal = 5;
+        document.getElementById('countdownWrapper').style.display = 'flex';
+        document.getElementById('countdownTimer').innerText = countdownVal;
+
+        let timer = setInterval(() => {
+            countdownVal--;
+            document.getElementById('countdownTimer').innerText = countdownVal;
+            if (countdownVal <= 0) {
+                clearInterval(timer);
+                document.getElementById('countdownWrapper').style.display = 'none';
+                launchRocket();
+            }
+        }, 1000);
+    }
+
+    function launchRocket() {
+        gameState = "FLYING";
+        currentMultiplier = 1.00;
+        
+        // نسبة الحظ (50/50): أحياناً ينفجر مبكراً تحت 2.0x وأحياناً يتجاوز 4.0x أو أكثر
+        if (Math.random() < 0.5) {
+            crashMultiplier = (Math.random() * 1.8 + 1.1).toFixed(2);
+        } else {
+            crashMultiplier = (Math.random() * 8.0 + 2.0).toFixed(2);
+        }
+
+        rocketX = 30; rocketY = canvas.height - 30;
+
+        let flyLoop = setInterval(() => {
+            if (gameState !== "FLYING") { clearInterval(flyLoop); return; }
+
+            currentMultiplier += 0.03;
+            document.getElementById('multiplierBadge').innerText = currentMultiplier.toFixed(2) + "x";
+
+            rocketX = Math.min(canvas.width - 40, rocketX + 1.6);
+            rocketY = Math.max(50, rocketY - 1.2);
+
+            if (currentMultiplier >= crashMultiplier) {
+                clearInterval(flyLoop);
+                gameState = "CRASHED";
+                document.getElementById('multiplierBadge').innerText = crashMultiplier + "x 💥";
+
+                // إضافة النتيجة للشريط العلوي
+                const ribbon = document.getElementById('historyRibbon');
+                const chip = document.createElement('div');
+                chip.className = crashMultiplier > 3 ? "history-chip high" : "history-chip";
+                chip.innerText = crashMultiplier + "x";
+                ribbon.insertBefore(chip, ribbon.firstChild);
+
+                if (hasBet) {
+                    hasBet = false;
+                    const btn = document.getElementById('mainBtn');
+                    btn.innerText = "تأكيد الرهان 🚀";
+                    btn.className = "btn-main";
+                }
+
+                setTimeout(startCountdown, 2500);
+            }
+        }, 80);
+    }
+
+    function handleButtonClick() {
+        const btn = document.getElementById('mainBtn');
+
+        if (!hasBet && (gameState === "COUNTDOWN" || gameState === "FLYING")) {
+            const betVal = parseFloat(document.getElementById('betInput').value);
+            if (isNaN(betVal) || betVal <= 0 || betVal > balance) {
+                alert("الرصيد غير كافٍ!");
+                return;
+            }
+
+            balance -= betVal;
+            activeBet = betVal;
+            hasBet = true;
+            document.getElementById('userBalance').innerText = balance.toFixed(2);
+
+            btn.innerText = "سحب الأرباح (Cashout) 💰";
+            btn.className = "btn-main cashout";
+
+        } else if (hasBet && gameState === "FLYING") {
+            // سحب الأرباح فوراً في أي وقت
+            let winAmount = activeBet * currentMultiplier;
+            balance += winAmount;
+            document.getElementById('userBalance').innerText = balance.toFixed(2);
+
+            hasBet = false;
+            btn.innerText = `ربحت ${winAmount.toFixed(2)} TON! 🚀`;
+            btn.className = "btn-main";
+        }
+    }
+
+    updateFeed();
+    startCountdown();
+    renderStage();
+</script>
+</body>
+</html>
