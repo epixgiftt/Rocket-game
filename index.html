@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>APEX TON BOT</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; }
+        body { background-color: #0d1117; color: #fff; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* الهيدر العلوي - شريط Apex الاصلي */
+        .header { background: #161b22; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; }
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .avatar { width: 36px; height: 36px; background: linear-gradient(135deg, #2563eb, #7c3aed); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .balance-card { background: #21262d; border: 1px solid #30363d; padding: 6px 14px; border-radius: 20px; font-weight: bold; color: #38bdf8; display: flex; align-items: center; gap: 6px; }
+
+        /* منطقة التنقل بين الألعاب */
+        .nav-tabs { display: flex; background: #161b22; border-bottom: 1px solid #30363d; overflow-x: auto; }
+        .tab-btn { flex: 1; min-width: 80px; padding: 12px 5px; background: none; border: none; color: #8b949e; font-weight: bold; font-size: 13px; cursor: pointer; text-align: center; border-bottom: 2px solid transparent; }
+        .tab-btn.active { color: #38bdf8; border-bottom-color: #38bdf8; background: #1c2128; }
+
+        /* محتوى التطبيق */
+        .content { flex: 1; position: relative; overflow-y: auto; display: flex; flex-direction: column; }
+        .page { display: none; height: 100%; flex-direction: column; }
+        .page.active { display: flex; }
+
+        /* واجهة لعبة الصاروخ 3D */
+        #rocket-game { position: relative; width: 100%; height: 100%; flex: 1; background: #05070a; }
+        #canvas-container { width: 100%; height: 260px; position: relative; }
+        #canvas-3d { width: 100%; height: 100%; display: block; }
+        
+        .hud-overlay { position: absolute; top: 15px; left: 0; width: 100%; text-align: center; pointer-events: none; }
+        .multiplier-text { font-size: 48px; font-weight: 900; text-shadow: 0 0 15px rgba(0,0,0,0.8); }
+
+        /* اختيار الصواريخ */
+        .rocket-selector { display: flex; gap: 10px; padding: 10px; background: #161b22; border-bottom: 1px solid #30363d; overflow-x: auto; }
+        .rocket-card { flex: 0 0 100px; background: #21262d; border: 1px solid #30363d; border-radius: 8px; padding: 8px; text-align: center; cursor: pointer; font-size: 11px; }
+        .rocket-card.selected { border-color: #38bdf8; background: #1c2d3d; }
+
+        /* قائمة المتسابقين والتحكم */
+        .game-controls { padding: 15px; background: #161b22; border-top: 1px solid #30363d; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        .input-group input { flex: 1; background: #0d1117; border: 1px solid #30363d; color: #fff; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; }
+        .btn-main { width: 100%; padding: 14px; border: none; border-radius: 8px; background: #238636; color: #fff; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .btn-main.cashout { background: #d97706; }
+        .btn-main:disabled { background: #30363d; cursor: not-allowed; }
+
+        .players-list { flex: 1; padding: 10px; overflow-y: auto; background: #0d1117; }
+        .player-row { display: flex; justify-content: space-between; padding: 8px 12px; background: #161b22; margin-bottom: 6px; border-radius: 6px; font-size: 13px; }
+
+        /* الألعاب الأخرى (Apex Originals) */
+        .games-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 15px; }
+        .game-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; }
+        .game-card h4 { margin-top: 8px; color: #e6edf3; }
+
+        /* متجر الهدايا (Telegram Stars / Premium) */
+        .gifts-container { padding: 15px; }
+        .gift-card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .btn-gift { background: #2563eb; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+
+        /* الإشعارات Pop-up */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; padding: 20px; }
+        .modal-body { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; width: 100%; max-width: 320px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <!-- الهيدر العلوي -->
+    <div class="header">
+        <div class="user-info">
+            <div class="avatar">VIP</div>
+            <div><strong>لاعب APEX</strong></div>
+        </div>
+        <div class="balance-card">
+            <span>💎 TON</span>
+            <span id="balance-val">10.00</span>
+        </div>
+    </div>
+
+    <!-- التبويبات -->
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('rocket-page', this)">🚀 الصاروخ 3D</button>
+        <button class="tab-btn" onclick="switchTab('games-page', this)">🎮 ألعاب Apex</button>
+        <button class="tab-btn" onclick="switchTab('gifts-page', this)">🎁 متجر الهدايا</button>
+    </div>
+
+    <div class="content">
+        <!-- صفحة لعبة الصاروخ 3D -->
+        <div id="rocket-page" class="page active">
+            <!-- اختيار الصاروخ -->
+            <div class="rocket-selector">
+                <div class="rocket-card selected" onclick="selectRocket(0, this)">
+                    <div>🚀 Falcon</div>
+                    <small>عادي</small>
+                </div>
+                <div class="rocket-card" onclick="selectRocket(1, this)">
+                    <div>⚡ Cyber 3D</div>
+                    <small>سريع</small>
+                </div>
+                <div class="rocket-card" onclick="selectRocket(2, this)">
+                    <div>👑 Golden Ton</div>
+                    <small>ملكي</small>
+                </div>
+            </div>
+
+            <!-- عرض اللعبة 3D -->
+            <div id="canvas-container">
+                <canvas id="canvas-3d"></canvas>
+                <div class="hud-overlay">
+                    <div id="multiplier-val" class="multiplier-text" style="color: #10b981;">1.00x</div>
+                </div>
+            </div>
+
+            <!-- التحكم بالرهان -->
+            <div class="game-controls">
+                <div class="input-group">
+                    <input type="number" id="bet-input" value="0.5" step="0.1" min="0.1">
+                    <button style="background:#21262d; border:1px solid #30363d; color:#fff; width:60px; border-radius:8px;" onclick="setBet(1)">1 TON</button>
+                    <button style="background:#21262d; border:1px solid #30363d; color:#fff; width:60px; border-radius:8px;" onclick="setBet(2)">2 TON</button>
+                </div>
+                <button id="btn-action" class="btn-main" onclick="handleAction()">دخول الجولة (وضع رهان)</button>
+            </div>
+
+            <!-- قائمة المشاركين -->
+            <div class="players-list" id="players-box">
+                <!-- يتم توليد المتسابقين تلقائياً -->
+            </div>
+        </div>
+
+        <!-- صفحة باقي الألعاب الأصلية -->
+        <div id="games-page" class="page">
+            <div class="games-grid">
+                <div class="game-card" onclick="alert('لعبة الألغام الأصيلة قيد التحميل...')">
+                    <div style="font-size:30px;">💣</div>
+                    <h4>Mines (الألغام)</h4>
+                </div>
+                <div class="game-card" onclick="alert('لعبة العجلة الأصلية قيد التحميل...')">
+                    <div style="font-size:30px;">🎡</div>
+                    <h4>Wheel (العجلة)</h4>
+                </div>
+                <div class="game-card" onclick="alert('لعبة النرد قيد التحميل...')">
+                    <div style="font-size:30px;">🎲</div>
+                    <h4>Dice (النرد)</h4>
+                </div>
+                <div class="game-card" onclick="alert('لعبة الكروت قيد التحميل...')">
+                    <div style="font-size:30px;">🃏</div>
+                    <h4>Plinko (بلينكو)</h4>
+                </div>
+            </div>
+        </div>
+
+        <!-- صفحة متجر الهدايا الحقيقية (Telegram Gifts) -->
+        <div id="gifts-page" class="page">
+            <div class="gifts-container">
+                <h3>استبدال TON بهدايا Telegram</h3>
+                <p style="font-size:12px; color:#8b949e; margin-bottom:15px;">عند وصول أرباحك إلى 4 TON يمكنك شراء هدايا تليجرام حقيقية مع إمكانية بيعها داخلياً.</p>
+                
+                <div class="gift-card">
+                    <div>
+                        <strong>Telegram Premium (شهر)</strong>
+                        <div style="font-size:12px; color:#38bdf8;">السعر: 4.00 TON</div>
+                    </div>
+                    <button class="btn-gift" onclick="buyGift('تلغرام بريميوم', 4.00)">سحب / شراء</button>
+                </div>
+
+                <div class="gift-card">
+                    <div>
+                        <strong>100 Telegram Stars ⭐️</strong>
+                        <div style="font-size:12px; color:#38bdf8;">السعر: 4.00 TON</div>
+                    </div>
+                    <button class="btn-gift" onclick="buyGift('100 نجمة تليجرام', 4.00)">سحب / شراء</button>
+                </div>
+
+                <div class="gift-card">
+                    <div>
+                        <strong>Gift NFT Rocket 🚀</strong>
+                        <div style="font-size:12px; color:#38bdf8;">السعر: 8.00 TON</div>
+                    </div>
+                    <button class="btn-gift" onclick="buyGift('هدية صاروخ NFT', 8.00)">سحب / شراء</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة منبثقة للربح والسحب -->
+    <div id="modal-box" class="modal">
+        <div class="modal-body">
+            <h3 id="modal-title" style="color:#10b981; margin-bottom:10px;">مبروك!</h3>
+            <p id="modal-desc" style="font-size:14px; margin-bottom:20px;"></p>
+            <button class="btn-main" onclick="closeModal()">موافق</button>
+        </div>
+    </div>
+
+<script>
+    // ----------------------------------------------------
+    // 1. إدارة الحالة ورصيد البوت
+    // ----------------------------------------------------
+    let balance = 10.00;
+    let selectedRocketIndex = 0;
+    let gameState = 'WAITING'; // WAITING, RUNNING, CRASHED
+    let currentMultiplier = 1.00;
+    let crashPoint = 0;
+    let userBet = 0;
+    let hasCashedOut = false;
+    let gameLoop;
+
+    function updateBalanceDisplay() {
+        document.getElementById('balance-val').innerText = balance.toFixed(2);
+    }
+
+    function switchTab(pageId, btn) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    function setBet(val) {
+        document.getElementById('bet-input').value = val;
+    }
+
+    // ----------------------------------------------------
+    // 2. إعداد مشهد Three.js 3D للصاروخ
+    // ----------------------------------------------------
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x05070a);
+
+    const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas-3d'), antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+
+    // إضافة الإضاءة
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(5, 10, 5);
+    scene.add(dirLight);
+
+    // مجموعة الصاروخ
+    const rocketGroup = new THREE.Group();
+    scene.add(rocketGroup);
+
+    // خامات وألوان الصواريخ المتاحة
+    const rocketMaterials = [
+        new THREE.MeshStandardMaterial({ color: 0x10b981, metalness: 0.5, roughness: 0.3 }), // Falcon (أخضر)
+        new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.9, roughness: 0.1 }), // Cyber (أزرق)
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.2 })  // Golden (ذهبي)
+    ];
+
+    let bodyMesh;
+    function buildRocket(materialIndex) {
+        // تفريغ القديم
+        while(rocketGroup.children.length > 0) { 
+            rocketGroup.remove(rocketGroup.children[0]); 
+        }
+
+        // جسم الصاروخ
+        const bodyGeo = new THREE.CylinderGeometry(0.2, 0.35, 1.8, 16);
+        bodyMesh = new THREE.Mesh(bodyGeo, rocketMaterials[materialIndex]);
+        rocketGroup.add(bodyMesh);
+
+        // الرأس
+        const noseGeo = new THREE.ConeGeometry(0.2, 0.5, 16);
+        const noseMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        const nose = new THREE.Mesh(noseGeo, noseMat);
+        nose.position.y = 1.15;
+        rocketGroup.add(nose);
+
+        // الأجنحة
+        const finGeo = new THREE.BoxGeometry(0.08, 0.4, 0.6);
+        const finMat = new THREE.MeshStandardMaterial({ color: 0x30363d });
+        for(let i=0; i<3; i++){
+            const fin = new THREE.Mesh(finGeo, finMat);
+            fin.position.y = -0.6;
+            fin.rotation.y = (i * Math.PI * 2) / 3;
+            fin.position.x = Math.sin((i * Math.PI * 2) / 3) * 0.3;
+            fin.position.z = Math.cos((i * Math.PI * 2) / 3) * 0.3;
+            rocketGroup.add(fin);
+        }
+    }
+
+    buildRocket(0);
+    rocketGroup.rotation.z = -Math.PI / 4;
+    camera.position.set(0, 0, 5);
+
+    function selectRocket(index, el) {
+        document.querySelectorAll('.rocket-card').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+        selectedRocketIndex = index;
+        buildRocket(index);
+    }
+
+    // ----------------------------------------------------
+    // 3. المنطق الديناميكي لتغير الألوان والمضاعف
+    // ----------------------------------------------------
+    function updateColorsByMultiplier(multiplier) {
+        let hexColor = 0x10b981; // أخضر (1-2)
+        let cssColor = '#10b981';
+
+        if (multiplier >= 2.00 && multiplier < 5.00) {
+            hexColor = 0x2563eb; // أزرق (2-5)
+            cssColor = '#2563eb';
+        } else if (multiplier >= 5.00 && multiplier < 8.00) {
+            hexColor = 0x9333ea; // بنفسجي (5-8)
+            cssColor = '#9333ea';
+        } else if (multiplier >= 8.00) {
+            hexColor = 0xf59e0b; // ذهبي (8+)
+            cssColor = '#f59e0b';
+        }
+
+        bodyMesh.material.color.setHex(hexColor);
+        document.getElementById('multiplier-val').style.color = cssColor;
+    }
+
+    // ----------------------------------------------------
+    // 4. محاكاة اللعبة وتفاعلات الرهان
+    // ----------------------------------------------------
+    const fakeNames = ["أحمد_TON", "كرار_VIP", "أمير_Apex", "مصطفى_99", "سجاد_Hero"];
+
+    function generatePlayers() {
+        const box = document.getElementById('players-box');
+        box.innerHTML = '';
+        fakeNames.forEach(name => {
+            const row = document.createElement('div');
+            row.className = 'player-row';
+            row.innerHTML = `<span>${name}</span> <span style="color:#38bdf8;">${(Math.random()*2+0.5).toFixed(1)} TON</span>`;
+            box.appendChild(row);
+        });
+    }
+
+    function handleAction() {
+        const betInput = parseFloat(document.getElementById('bet-input').value);
+
+        if (gameState === 'WAITING' || gameState === 'CRASHED') {
+            if (betInput > balance) {
+                alert('رصيدك لا يكفي!');
+                return;
+            }
+            userBet = betInput;
+            balance -= userBet;
+            updateBalanceDisplay();
+            hasCashedOut = false;
+
+            document.getElementById('btn-action').innerText = 'سحب الأرباح (Cashout)';
+            document.getElementById('btn-action').className = 'btn-main cashout';
+            
+            startRound();
+        } else if (gameState === 'RUNNING' && !hasCashedOut) {
+            // سحب الأرباح
+            hasCashedOut = true;
+            const winVal = userBet * currentMultiplier;
+            balance += winVal;
+            updateBalanceDisplay();
+
+            document.getElementById('btn-action').innerText = 'تم السحب بنجاح!';
+            document.getElementById('btn-action').disabled = true;
+
+            showModal("تم السحب بنجاح! 🎉", `حصلت على ${winVal.toFixed(2)} TON عند المضاعف ${currentMultiplier.toFixed(2)}x`);
+        }
+    }
+
+    function startRound() {
+        gameState = 'RUNNING';
+        currentMultiplier = 1.00;
+        crashPoint = (Math.random() * 8 + 1.1).toFixed(2); // الانفجار العشوائي
+        generatePlayers();
+
+        gameLoop = setInterval(() => {
+            currentMultiplier += 0.02 + (currentMultiplier * 0.003);
+            document.getElementById('multiplier-val').innerText = currentMultiplier.toFixed(2) + 'x';
+            
+            updateColorsByMultiplier(currentMultiplier);
+
+            if (currentMultiplier >= crashPoint) {
+                endRound();
+            }
+        }, 50);
+    }
+
+    function endRound() {
+        clearInterval(gameLoop);
+        gameState = 'CRASHED';
+
+        document.getElementById('multiplier-val').innerText = '💥 طك الصاروخ!';
+        document.getElementById('multiplier-val').style.color = '#ef4444';
+
+        const btn = document.getElementById('btn-action');
+        btn.disabled = false;
+        btn.className = 'btn-main';
+        btn.innerText = 'دخول الجولة (وضع رهان)';
+
+        if (userBet > 0 && !hasCashedOut) {
+            showModal("خسرت الجولة! 💥", `انفجر الصاروخ عند ${crashPoint}x قبل أن تسحب.`);
+        }
+
+        userBet = 0;
+    }
+
+    // ----------------------------------------------------
+    // 5. متجر الهدايا الحقيقية وسحب الـ 4 TON
+    // ----------------------------------------------------
+    function buyGift(giftName, price) {
+        if (balance < price) {
+            alert(`عذراً، تحتاج إلى ${price} TON على الأقل لشراء/سحب ${giftName}`);
+            return;
+        }
+
+        balance -= price;
+        updateBalanceDisplay();
+        showModal("تم السحب بنجاح! 🎁", `تم شراء ${giftName} وإضافتها إلى حسابك الوهمي. يمكنك إما إعادة بيعها داخل البوت أو استخدامها.`);
+    }
+
+    function showModal(title, desc) {
+        document.getElementById('modal-title').innerText = title;
+        document.getElementById('modal-desc').innerText = desc;
+        document.getElementById('modal-box').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('modal-box').style.display = 'none';
+    }
+
+    // ----------------------------------------------------
+    // 6. التحريك المستمر (Animation Loop)
+    // ----------------------------------------------------
+    function animate() {
+        requestAnimationFrame(animate);
+
+        if (gameState === 'RUNNING') {
+            rocketGroup.position.y = Math.sin(Date.now() * 0.008) * 0.15;
+            rocketGroup.rotation.y += 0.02; // دوران إضافي للواقعية
+        } else {
+            rocketGroup.rotation.y = 0;
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+    generatePlayers();
+</script>
+</body>
+</html>
